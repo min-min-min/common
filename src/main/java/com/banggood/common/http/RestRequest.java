@@ -1,13 +1,15 @@
 package com.banggood.common.http;
 
-import com.banggood.common.entity.Result;
-import com.banggood.common.utils.ResultUtil;
+import com.alibaba.fastjson.JSONObject;
 import com.google.common.collect.Maps;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -23,7 +25,11 @@ public class RestRequest {
 
     private RestTemplate restTemplate;
 
-    private static final String JSON_HEADER = "application/json; charset=UTF-8";
+    private static final String CONTENT_TYPE = "Content-Type";
+
+    private static final String APPLICATION_JSON = "application/json";
+
+    private static final String APPLICATION_FORM_URLENCODED = "application/x-www-form-urlencoded";
 
     public RestRequest(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -36,58 +42,72 @@ public class RestRequest {
      * @param paramMap  参数 如果没有可以为null
      * @param clazz     输出类型
      * @param headerMap 头部map 如果没有 可以为null
-     * @return {@link Result} 200成功  500失败
+     * @return {@link ResponseEntity}
      */
-    public <T> Result<T> get(@NonNull String url, Map<String, ?> paramMap, @NonNull Class<T> clazz, Map<String, String> headerMap) {
+    public <T> ResponseEntity<T> get(@NonNull String url, Map<String, ?> paramMap, @NonNull Class<T> clazz,
+                                     Map<String, String> headerMap) throws RestClientException {
         String paramString = "";
-        Result result;
         if (null != paramMap && paramMap.size() > 0) {
             StringBuilder paramStringBuilder = new StringBuilder();
-            paramMap.forEach((k, v) -> paramStringBuilder.append("&").append(k).append("=").append("{" + k + "}"));
+            paramMap.forEach((k, v) -> paramStringBuilder.append("&").append(k).append("=").append("{").append(k).append("}"));
             paramString = "?" + paramStringBuilder.toString().substring(1);
         } else {
             paramMap = Maps.newHashMap();
         }
-        log.debug("请求的url=>{},参数=>{}", url + paramString, paramMap.toString());
+        log.info("请求的url=>{},参数=>{}", url + paramString, paramMap.toString());
         HttpHeaders headers = new HttpHeaders();
         if (null != headerMap && headerMap.size() > 0) {
             headerMap.forEach(headers::add);
         }
         log.debug("请求携带头部=>{}", headers.toString());
         HttpEntity requestEntity = new HttpEntity<>(null, headers);
-        try {
-            result = ResultUtil.success(restTemplate.exchange(url + paramString, HttpMethod.GET, requestEntity, clazz, paramMap).getBody());
-        } catch (Exception e) {
-            e.printStackTrace();
-            result = ResultUtil.error(e.getMessage());
+        return restTemplate.exchange(url + paramString, HttpMethod.GET, requestEntity, clazz, paramMap);
+    }
+
+    /**
+     * post 表单请求
+     *
+     * @param url       url
+     * @param paramMap  map参数 如果没有 可以为null
+     * @param clazz     输出类型class
+     * @param headerMap 请求头 如果没有 可以为null
+     * @return {@link ResponseEntity}
+     */
+    public <T> ResponseEntity<T> postForm(@NonNull String url, Map<String, Object> paramMap, @NonNull Class<T> clazz,
+                                          Map<String, String> headerMap) throws RestClientException {
+        LinkedMultiValueMap<String, Object> linkedMultiValueMap = new LinkedMultiValueMap<>();
+        if (null != paramMap && paramMap.size() > 0) {
+            paramMap.forEach(linkedMultiValueMap::add);
         }
-        return result;
+        log.info("请求的url=>{},参数=>{}", url, linkedMultiValueMap.toString());
+        HttpHeaders headers = new HttpHeaders();
+        headerMap.putIfAbsent(CONTENT_TYPE, APPLICATION_FORM_URLENCODED);
+        headerMap.forEach(headers::add);
+        log.debug("请求携带头部=>{}", headers.toString());
+        HttpEntity<LinkedMultiValueMap<String, Object>> httpEntity = new HttpEntity<>(linkedMultiValueMap, headers);
+        return restTemplate.exchange(url, HttpMethod.POST, httpEntity, clazz, paramMap);
     }
 
     /**
-     * TODO
+     * post json请求
      *
-     * @param url
-     * @param paramMap
-     * @param clazz
-     * @param headerMap
-     * @return
+     * @param url       url
+     * @param param     json 字符串
+     * @param clazz     输出类型class
+     * @param headerMap http请求头 如果没有可以为null
+     * @return {@link ResponseEntity}
      */
-    public Result postForm(@NonNull String url, Map<String, ?> paramMap, @NonNull Class clazz, @NonNull Map<String, String> headerMap) {
-        return null;
-    }
-
-    /**
-     * TODO
-     *
-     * @param url
-     * @param param
-     * @param clazz
-     * @param headerMap
-     * @return
-     */
-    public Result postJson(@NonNull String url, String param, @NonNull Class clazz, @NonNull Map<String, String> headerMap) {
-        return null;
+    public <T> ResponseEntity<T> postJson(@NonNull String url, String param, @NonNull Class<T> clazz, Map<String, String> headerMap) {
+        if (null == param) {
+            param = "";
+        }
+        log.info("请求的url=>{},参数=>{}", url, param);
+        HttpHeaders headers = new HttpHeaders();
+        headerMap.putIfAbsent(CONTENT_TYPE, APPLICATION_JSON);
+        headerMap.forEach(headers::add);
+        log.debug("请求携带头部=>{}", headers.toString());
+        HttpEntity<String> httpEntity = new HttpEntity<>(param, headers);
+        return restTemplate.exchange(url, HttpMethod.POST, httpEntity, clazz, param);
     }
 
     public static void main(String[] args) {
@@ -97,7 +117,17 @@ public class RestRequest {
         map.put("channelName", "DHL");
         Map<String, String> head = Maps.newHashMap();
         head.put("Authorization", "@$%s5jhk36@!#Sap");
-        Result a = restRequest.get("http://203.88.208.20:9001/db/channel", map, String.class, head);
+        ResponseEntity<String> a = restRequest.get("http://203.88.208.20:9001/db/channel", map, String.class, head);
         System.out.println(a.toString());
+
+
+        LinkedMultiValueMap<String, Object> linkedMultiValueMap = new LinkedMultiValueMap<>();
+        linkedMultiValueMap.add("typeName", "test");
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("typeName", "test");
+        ResponseEntity<String> b = restRequest.postJson("http://192.168.1.58:9001/printtype", jsonObject.toJSONString(), String.class, head);
+        System.out.println(b.getBody());
+
+
     }
 }

@@ -17,7 +17,7 @@ public class SplitUtil {
      *
      * @param reg 按照什么格式分割
      * @param str 要分割的字符串
-     * @return list
+     * @return {@link List<String>}
      */
     public static List<String> split(@NonNull String reg, @NonNull String str) {
         return Splitter.on(reg)
