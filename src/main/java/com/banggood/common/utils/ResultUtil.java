@@ -48,7 +48,7 @@ public class ResultUtil {
      * @param data 数据
      * @return {@link Result}
      */
-    public static Result build(@NonNull int code, @NonNull String msg, Object data) {
+    public static Result create(@NonNull int code, @NonNull String msg, Object data) {
         return new Result<>().setCode(code)
                 .setMsg(msg)
                 .setData(data);
@@ -61,7 +61,7 @@ public class ResultUtil {
      * @param data       数据
      * @return {@link Result}
      */
-    public static Result build(@NonNull HttpStatus httpStatus, Object data) {
+    public static Result create(@NonNull HttpStatus httpStatus, Object data) {
         return new Result<>().setCode(httpStatus.getCode())
                 .setMsg(httpStatus.getMsg())
                 .setData(data);
